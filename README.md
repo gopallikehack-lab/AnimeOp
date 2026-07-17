@@ -7,21 +7,22 @@ sdk: static
 pinned: false
 ---
 
-# 🎬 AnimeOP — GpSirEra
+# 🎬 AnimeOP — Watch Anime Free
 
-Search, explore, and watch anime using the **Jikan API** (MyAnimeList).
+Stream anime episodes directly from your browser.
 
 ## Features
-- 🔍 Search anime with language filter
-- 🏆 Top anime by type (TV, Movie, OVA, Special)
-- 📂 Browse by genres
-- 📖 Detailed anime info (synopsis, score, episodes, studios)
-- 🌐 Multi-language support
+- 🔍 Search anime
+- 📺 Trending and Popular
+- 📖 Anime details with episodes
+- ▶️ Built-in video player
+- 🎯 Multi-quality streams
 
-## API Source
-- Jikan API v4 (Unofficial MyAnimeList API)
+## API
+- AniList GraphQL (metadata)
+- Consumet API (streaming links)
 
 ## Deploy
-- Static site — works on Vercel, Netlify, Hugging Face
+Static site — works on Vercel, Netlify, Hugging Face
 
 By ~GpSirEra
