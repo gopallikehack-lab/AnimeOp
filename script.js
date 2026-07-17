@@ -1,5 +1,6 @@
 const ANILIST_API = "https://graphql.anilist.co";
-const CONSUMET_API = "https://api.consumet.org/anime/gogoanime";
+// ===== CONSUMET HI-ANIME API (WORKING) =====
+const CONSUMET_API = "https://api.consumet.org/anime/hianime";
 
 // ===== PAGES =====
 function showPage(page) {
@@ -152,31 +153,35 @@ async function showAnime(id) {
                 </div>
             </div>
         `;
-        // Load episodes
-        await loadEpisodes(a.id, a.title.romaji);
+        // Load episodes from hianime
+        await loadEpisodes(a.title.romaji);
     } catch (e) {
         content.innerHTML = '<div class="loading">Error loading details</div>';
     }
 }
 
-// ===== LOAD EPISODES FROM CONSUMET =====
-async function loadEpisodes(anilistId, title) {
+// ===== LOAD EPISODES FROM CONSUMET (HI-ANIME) =====
+async function loadEpisodes(title) {
     const grid = document.getElementById('episodeGrid');
     grid.innerHTML = '<div class="loading">Loading episodes...</div>';
     try {
-        // Search for anime on Gogoanime via Consumet
+        // Search for anime on hianime via Consumet
         const searchRes = await fetch(`${CONSUMET_API}/search?q=${encodeURIComponent(title)}`);
         const searchData = await searchRes.json();
-        if (!searchData.results || searchData.results.length === 0) {
+        
+        if (!searchData.data || searchData.data.length === 0) {
             grid.innerHTML = '<div class="loading">No episodes found.</div>';
             return;
         }
-        const animeId = searchData.results[0].id;
-        const epRes = await fetch(`${CONSUMET_API}/info/${animeId}`);
-        const epData = await epRes.json();
-        if (epData.episodes && epData.episodes.length > 0) {
-            grid.innerHTML = epData.episodes.map(ep => `
-                <button class="episode-btn" onclick="playEpisode('${ep.id}', '${title} - ${ep.number || 'Episode'}')">
+        
+        const animeId = searchData.data[0].id;
+        // Get anime info with episodes
+        const infoRes = await fetch(`${CONSUMET_API}/info/${animeId}`);
+        const infoData = await infoRes.json();
+        
+        if (infoData.episodes && infoData.episodes.length > 0) {
+            grid.innerHTML = infoData.episodes.map(ep => `
+                <button class="episode-btn" onclick="playEpisode('${animeId}', '${ep.number || 'episode'}', '${ep.episodeId || ep.id}')">
                     ${ep.number ? 'Episode ' + ep.number : 'Episode'}
                 </button>
             `).join('');
@@ -190,20 +195,33 @@ async function loadEpisodes(anilistId, title) {
 }
 
 // ===== PLAY EPISODE =====
-async function playEpisode(episodeId, title) {
+async function playEpisode(animeId, episodeNumber, episodeId) {
     const modal = document.getElementById('playerModal');
     const player = document.getElementById('player');
     const titleEl = document.getElementById('playerTitle');
-    titleEl.textContent = title;
+    
+    titleEl.textContent = `Episode ${episodeNumber}`;
     modal.classList.add('show');
     player.src = '';
-    player.poster = 'https://via.placeholder.com/800x450?text=Loading...';
+    
     try {
-        const res = await fetch(`${CONSUMET_API}/watch/${episodeId}`);
+        // Use hianime watch endpoint with episode ID
+        const watchUrl = `${CONSUMET_API}/watch/${episodeId}`;
+        console.log('Fetching stream from:', watchUrl);
+        
+        const res = await fetch(watchUrl);
         const data = await res.json();
+        
         if (data.sources && data.sources.length > 0) {
-            // Get best quality source
-            const source = data.sources.find(s => s.quality === '1080p') || data.sources[0];
+            // Get best quality source (1080p > 720p > 480p)
+            const qualities = ['1080p', '720p', '480p', '360p'];
+            let source = null;
+            for (const q of qualities) {
+                source = data.sources.find(s => s.quality === q);
+                if (source) break;
+            }
+            if (!source) source = data.sources[0];
+            
             player.src = source.url;
             player.load();
             player.play();
@@ -211,8 +229,8 @@ async function playEpisode(episodeId, title) {
             alert('No stream available for this episode.');
         }
     } catch (e) {
-        alert('Error loading stream.');
         console.error(e);
+        alert('Error loading stream. Try another episode.');
     }
 }
 
