@@ -1,6 +1,6 @@
 const ANILIST_API = "https://graphql.anilist.co";
-// ===== CONSUMET HI-ANIME API (WORKING) =====
-const CONSUMET_API = "https://api.consumet.org/anime/hianime";
+// ===== WORKING CONSUMET API (Vercel Mirror) =====
+const CONSUMET_API = "https://api-anime-coral.vercel.app/anime/gogoanime";
 
 // ===== PAGES =====
 function showPage(page) {
@@ -106,12 +106,12 @@ async function searchAnime() {
     }
 }
 
-// ===== SHOW ANIME DETAIL + EPISODES =====
+// ===== SHOW ANIME DETAIL =====
 async function showAnime(id) {
     const page = document.getElementById('detailPage');
     const content = document.getElementById('detailContent');
     const epGrid = document.getElementById('episodeGrid');
-    page.classList.add('active');
+    
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     page.classList.add('active');
     content.innerHTML = '<div class="loading">Loading...</div>';
@@ -130,6 +130,7 @@ async function showAnime(id) {
                 status
                 format
                 duration
+                synonyms
             }
         }
     `;
@@ -141,7 +142,7 @@ async function showAnime(id) {
                 <img src="${a.coverImage.large}" alt="${a.title.romaji}" />
                 <div class="info">
                     <h2>${a.title.romaji}</h2>
-                    <p>${a.description ? a.description.replace(/<[^>]*>/g, '').slice(0, 300) + '...' : 'No description.'}</p>
+                    <p>${a.description ? a.description.replace(/<[^>]*>/g, '').slice(0, 350) + '...' : 'No description.'}</p>
                     <div class="detail-meta">
                         <span>⭐ ${a.averageScore ? (a.averageScore/10).toFixed(1) : 'N/A'}</span>
                         <span>📺 ${a.episodes || '?'} eps</span>
@@ -153,35 +154,35 @@ async function showAnime(id) {
                 </div>
             </div>
         `;
-        // Load episodes from hianime
+        // Search and load episodes using Consumet
         await loadEpisodes(a.title.romaji);
     } catch (e) {
         content.innerHTML = '<div class="loading">Error loading details</div>';
     }
 }
 
-// ===== LOAD EPISODES FROM CONSUMET (HI-ANIME) =====
+// ===== LOAD EPISODES =====
 async function loadEpisodes(title) {
     const grid = document.getElementById('episodeGrid');
     grid.innerHTML = '<div class="loading">Loading episodes...</div>';
     try {
-        // Search for anime on hianime via Consumet
+        // Search for anime
         const searchRes = await fetch(`${CONSUMET_API}/search?q=${encodeURIComponent(title)}`);
         const searchData = await searchRes.json();
         
-        if (!searchData.data || searchData.data.length === 0) {
+        if (!searchData.results || searchData.results.length === 0) {
             grid.innerHTML = '<div class="loading">No episodes found.</div>';
             return;
         }
         
-        const animeId = searchData.data[0].id;
-        // Get anime info with episodes
+        const animeId = searchData.results[0].id;
+        // Get episodes
         const infoRes = await fetch(`${CONSUMET_API}/info/${animeId}`);
         const infoData = await infoRes.json();
         
         if (infoData.episodes && infoData.episodes.length > 0) {
             grid.innerHTML = infoData.episodes.map(ep => `
-                <button class="episode-btn" onclick="playEpisode('${animeId}', '${ep.number || 'episode'}', '${ep.episodeId || ep.id}')">
+                <button class="episode-btn" onclick="playEpisode('${ep.id}', '${ep.number || 'Episode'}')">
                     ${ep.number ? 'Episode ' + ep.number : 'Episode'}
                 </button>
             `).join('');
@@ -195,7 +196,7 @@ async function loadEpisodes(title) {
 }
 
 // ===== PLAY EPISODE =====
-async function playEpisode(animeId, episodeNumber, episodeId) {
+async function playEpisode(episodeId, episodeNumber) {
     const modal = document.getElementById('playerModal');
     const player = document.getElementById('player');
     const titleEl = document.getElementById('playerTitle');
@@ -203,17 +204,15 @@ async function playEpisode(animeId, episodeNumber, episodeId) {
     titleEl.textContent = `Episode ${episodeNumber}`;
     modal.classList.add('show');
     player.src = '';
+    player.poster = 'https://via.placeholder.com/800x450?text=Loading...';
     
     try {
-        // Use hianime watch endpoint with episode ID
-        const watchUrl = `${CONSUMET_API}/watch/${episodeId}`;
-        console.log('Fetching stream from:', watchUrl);
-        
-        const res = await fetch(watchUrl);
-        const data = await res.json();
+        // Get streaming links using Gogoanime watch endpoint
+        const watchRes = await fetch(`${CONSUMET_API}/watch/${episodeId}`);
+        const data = await watchRes.json();
         
         if (data.sources && data.sources.length > 0) {
-            // Get best quality source (1080p > 720p > 480p)
+            // Prefer 1080p or highest quality
             const qualities = ['1080p', '720p', '480p', '360p'];
             let source = null;
             for (const q of qualities) {
@@ -226,11 +225,11 @@ async function playEpisode(animeId, episodeNumber, episodeId) {
             player.load();
             player.play();
         } else {
-            alert('No stream available for this episode.');
+            alert('❌ No stream available. Try another episode.');
         }
     } catch (e) {
         console.error(e);
-        alert('Error loading stream. Try another episode.');
+        alert('⚠️ Error loading stream. Try again.');
     }
 }
 
